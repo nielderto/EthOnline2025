@@ -1,42 +1,31 @@
 "use client";
+import { client } from "@/app/thirdwebClient";
+import { useAccountStore } from "@/store/account";
 import { useEffect } from "react";
-import { ConnectButton, useActiveAccount } from "thirdweb/react";
-import { client } from "../app/thirdwebClient";
-import { supabase } from "../app/supabase-client";
+import {
+  ConnectEmbed,
+  useActiveAccount,
+  useActiveWallet,
+} from "thirdweb/react";
 
-export default function LoginButton() {
+export const LoginButton = () => {
   const account = useActiveAccount();
+  const wallet = useActiveWallet();
+  const { setAccount, disconnect, address, isRegistered } = useAccountStore();
 
+  // Update store when account changes
   useEffect(() => {
-    const saveWalletAddress = async () => {
-      if (account?.address) {
-        try {
-          const { data, error } = await supabase.from("wallets").insert({
-            wallet_address: account.address,
-          });
-
-          if (error) {
-            console.error("Error saving wallet:", error);
-          } else {
-            console.log("Wallet saved successfully:", account.address);
-          }
-        } catch (err) {
-          console.error("Unexpected error:", err);
-        }
-      }
-    };
-
-    saveWalletAddress();
-  }, [account?.address]);
+    if (account) {
+      setAccount(account);
+    } else {
+      // Clear store when account becomes null
+      disconnect();
+    }
+  }, [account]);
 
   return (
-    <div>
-      <ConnectButton client={client} />
-      {account && (
-        <p className="mt-2 text-sm">
-          Connected: {account.address.slice(0, 6)}...{account.address.slice(-4)}
-        </p>
-      )}
+    <div className="mx-auto">
+      <ConnectEmbed client={client} />
     </div>
   );
-}
+};
