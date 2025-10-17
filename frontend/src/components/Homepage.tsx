@@ -1,5 +1,6 @@
 "use client";
-import { client } from "@/app/thirdwebClient";
+import Home from "@/app/home/page";
+import { client } from "@/lib/client";
 import { useAccountStore } from "@/store/account";
 import { useEffect } from "react";
 import {
@@ -8,7 +9,7 @@ import {
   useActiveWallet,
 } from "thirdweb/react";
 
-export const LoginButton = () => {
+export default function Homepage() {
   const account = useActiveAccount();
   const wallet = useActiveWallet();
   const { setAccount, disconnect, address, isRegistered } = useAccountStore();
@@ -23,9 +24,14 @@ export const LoginButton = () => {
     }
   }, [account]);
 
-  return (
-    <div className="mx-auto">
-      <ConnectEmbed client={client} />
-    </div>
-  );
-};
+  if (!isRegistered) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen gap-2">
+        <h1 className="text-2xl font-bold">Connect your wallet to continue</h1>
+        <ConnectEmbed client={client} className="mx-auto" />
+      </div>
+    );
+  }
+
+  return <Home />;
+}

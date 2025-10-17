@@ -1,17 +1,16 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import localFont from "next/font/local";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { ThemeProvider } from "@/components/theme-provider";
-import { ThirdwebProvider } from "thirdweb/react";
+import { ThemeProvider } from "@/providers/theme-provider";
 
-const inter = Inter({
+const geistSans = Geist({
+  variable: "--font-geist-sans",
   subsets: ["latin"],
-  variable: "--font-inter",
 });
 
-const martina = localFont({
-  src: "../../public/fonts/TestMartinaPlantijn-Medium-BF663c36d1e5bed.otf",
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
@@ -26,17 +25,17 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className}  antialiased `}>
-        <ThirdwebProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="dark"
-            enableSystem
-            disableTransitionOnChange
-          >
-            {children}
-          </ThemeProvider>
-        </ThirdwebProvider>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );

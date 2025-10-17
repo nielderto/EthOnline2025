@@ -1,7 +1,12 @@
+"use client";
+import { client } from "@/lib/client";
 import { useAccountStore } from "@/store/account";
+import { base } from "thirdweb/chains";
 import { useActiveWallet } from "thirdweb/react";
+import { BuyWidget } from "thirdweb/react";
+import UnifiedBalance from "./unified-balance";
 
-export default function Homepage() {
+export default function Dashboard() {
   const { disconnect } = useAccountStore();
   const wallet = useActiveWallet();
 
@@ -21,6 +26,14 @@ export default function Homepage() {
       >
         Sign Out
       </button>
+      <BuyWidget
+        client={client}
+        currency="USD"
+        className="w-full max-w-md"
+        chain={base}
+      />
+
+      <UnifiedBalance />
     </div>
   );
 }
