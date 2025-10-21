@@ -31,7 +31,7 @@ const UnifiedBalance = () => {
     } catch (error: unknown) {
       console.error("Unable to fetch balance", error);
       setError(
-        error instanceof Error ? error.message : "Failed to fetch balance"
+        error instanceof Error ? error.message : "Failed to fetch balance",
       );
     } finally {
       setIsLoading(false);
@@ -70,7 +70,7 @@ const UnifiedBalance = () => {
           Total Balance:
         </Label>
 
-        <Label className="text-lg font-bold gap-x-0 text-white">
+        <Label className="text-lg font-bold gap-x-0">
           <DollarSign className="w-4 h-4 font-bold" strokeWidth={3} />
           {balance
             ?.reduce((acc, fiat) => acc + fiat.balanceInFiat, 0)
@@ -107,7 +107,7 @@ const UnifiedBalance = () => {
                         </p>
                       </div>
                     </div>
-                    <p className="text-lg font-medium text-white">
+                    <p className="text-lg font-medium">
                       {formatBalance(token.balance, 6)}
                     </p>
                   </div>
@@ -134,7 +134,7 @@ const UnifiedBalance = () => {
                               </span>
                             </div>
                             <div className="text-right">
-                              <p className="text-sm font-medium text-white">
+                              <p className="text-sm font-medium">
                                 {formatBalance(chain.balance, chain.decimals)}
                               </p>
                               <p className="text-xs text-muted-foreground">

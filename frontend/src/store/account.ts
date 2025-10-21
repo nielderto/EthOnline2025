@@ -1,22 +1,33 @@
-import { create } from "zustand";
-import { Account } from "thirdweb/wallets";
+import { create } from 'zustand';
 
-type AccountStoreState = {
-  address: Account | null;
-  isRegistered: boolean;
-  setAccount: (account: Account | null) => void;
-  disconnect: () => void;
-};
+type AccountState = {
+    address: string | null
+    isRegistered: boolean
+    username?: string | null
+    onDisconnect: () => void
+    onAccountChange: (newUser: string | undefined) => Promise<void>;
+    authenticate: (newUser: string) => Promise<void>;
+}
 
-export const useAccountStore = create<AccountStoreState>((set) => ({
-  address: null,
-  isRegistered: false,
+export const useAccountStore = create<AccountState>((set,get) => ({
+    address: null,
+    isRegistered: false,
+    onDisconnect: () => {
+        set({ address: null, isRegistered: false, username: null })
+    },
 
-  setAccount: (account: Account | null) => {
-    set({ address: account, isRegistered: true });
-  },
+    onAccountChange: async (newUser: string | undefined) => {
+        const state = get()
 
-  disconnect: () => {
-    set({ address: null, isRegistered: false });
-  },
-}));
+        if (newUser === undefined) {
+            state.onDisconnect()
+        }
+    },
+
+    authenticate: async (newUser: string): Promise<void> => {
+        set({
+            address: newUser,
+            isRegistered: true,
+        })
+    }
+}))
