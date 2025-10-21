@@ -39,7 +39,7 @@ const NexusContext = createContext<NexusContextType | undefined>(undefined);
 
 interface NexusProviderProps {
     children: ReactNode;
-    isConnected: AccountState['isRegistered'];
+    isConnected: boolean;
     network?: "mainnet" | "testnet";
 }
 
