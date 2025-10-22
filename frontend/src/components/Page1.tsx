@@ -1,17 +1,22 @@
-'use client';
-import { isInitialized } from '@/lib/nexus';
-import { useState } from "react";
-import UnifiedBalance from "./init-button";
+import UnifiedBalance from "./unified-balance";
+import { EB_Garamond } from "next/font/google";
+import { Inter } from "next/font/google";
+
+const ebGaramond = EB_Garamond({
+    subsets: ["latin"],
+    display: "swap",
+});
+
+const inter = Inter({
+    subsets: ["latin"],
+    display: "swap",
+});
 
 export default function Page1() {
-    const [initialized, setInitialized] = useState(isInitialized());
 
-    const btn =
-    'px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 ' +
-    'disabled:opacity-50 disabled:cursor-not-allowed';
-
-    return <div>
-        <h1>Page 1</h1>
-        <UnifiedBalance/>
-    </div>
+    return (
+        <section className={`flex flex-col items-center justify-center h-screen font-serif ${inter.className}`}>
+            <h1 className={`${ebGaramond.className} text-right text-4xl font-bold`}>Welcome Back!</h1>
+        </section>
+    )
 }

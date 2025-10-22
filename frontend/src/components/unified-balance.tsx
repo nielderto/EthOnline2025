@@ -1,6 +1,6 @@
 "use client";
 import { useNexus } from "@/providers/NexusProvider";
-import React, { useEffect, useState, useCallback } from "react";
+import React from "react";
 import {
   Accordion,
   AccordionContent,
@@ -12,35 +12,17 @@ import { Separator } from "./ui/separator";
 import { DollarSign, Loader2 } from "lucide-react";
 import { Label } from "./ui/label";
 import { CHAIN_METADATA, UserAsset } from "@avail-project/nexus-core";
+import { useQuery } from "@tanstack/react-query";
 
 const UnifiedBalance = () => {
   const { nexusSdk, isInitialized } = useNexus();
-  const [balance, setBalance] = useState<UserAsset[] | undefined>(undefined);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchUnifiedBalance = useCallback(async () => {
-    if (!nexusSdk || !isInitialized) return;
-
-    try {
-      setIsLoading(true);
-      setError(null);
-      const unifiedBalance = await nexusSdk.getUnifiedBalances();
-      console.log("unifiedBalance", unifiedBalance);
-      setBalance(unifiedBalance);
-    } catch (error: unknown) {
-      console.error("Unable to fetch balance", error);
-      setError(
-        error instanceof Error ? error.message : "Failed to fetch balance",
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, [nexusSdk, isInitialized]);
-
-  useEffect(() => {
-    fetchUnifiedBalance();
-  }, [fetchUnifiedBalance]);
+  const { data: balance, isLoading, error } = useQuery<UserAsset[]>({
+    queryKey: ["unifiedBalances"],
+    queryFn: async () => {
+      return await nexusSdk!.getUnifiedBalances();
+    },
+    enabled: !!nexusSdk && isInitialized,
+  });
 
   const formatBalance = (balance: string, decimals: number) => {
     const num = parseFloat(balance);
@@ -50,7 +32,7 @@ const UnifiedBalance = () => {
   if (error) {
     return (
       <div className="w-full max-w-2xl mx-auto p-4 text-red-500">
-        Error: {error}
+        Error: {error instanceof Error ? error.message : "Failed to fetch balance"}
       </div>
     );
   }

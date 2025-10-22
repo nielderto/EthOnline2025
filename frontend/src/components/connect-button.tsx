@@ -21,7 +21,7 @@ export default function ConnectWalletButton() {
       const connected = ready && account && chain;
 
       return (
-        <div>
+        <div className="flex flex-col items-center justify-center bg-white text-black p-2 rounded-md">
           {!connected ? (
             <button onClick={openConnectModal}>
               Connect Wallet

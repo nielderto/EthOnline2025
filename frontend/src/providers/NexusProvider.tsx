@@ -12,30 +12,24 @@ import React, {
     useContext,
     ReactNode,
     useState,
-    useEffect,
     useMemo,
-    useCallback,
-    SetStateAction,
-    Dispatch,
+    useRef,
 } from "react"
 
-import {useAccount} from "wagmi";
+import { useAccount } from "wagmi";
+import { useQuery } from "@tanstack/react-query";
 
-import { useAccountStore } from "@/store/account";
-
-type AccountState = ReturnType<typeof useAccountStore.getState>;
-
+// ✅ 1. Separate types
 type NexusContextType = {
     nexusSdk: NexusSDK | undefined;
     isInitialized: boolean;
+    isLoading: boolean;
+    error: Error | null;
     allowanceModal: OnAllowanceHookData | null;
-    setAllowanceModal: Dispatch<SetStateAction<OnAllowanceHookData | null>>;
+    setAllowanceModal: (data: OnAllowanceHookData | null) => void;
     intentModal: OnIntentHookData | null;
-    setIntentModal: Dispatch<SetStateAction<OnIntentHookData | null>>;
-    cleanupSDK: () => void;
+    setIntentModal: (data: OnIntentHookData | null) => void;
 }
-
-const NexusContext = createContext<NexusContextType | undefined>(undefined);
 
 interface NexusProviderProps {
     children: ReactNode;
@@ -43,88 +37,84 @@ interface NexusProviderProps {
     network?: "mainnet" | "testnet";
 }
 
-export const NexusProvider: React.FC<NexusProviderProps> = ({children, isConnected, network = "testnet"}) => {
-    const [nexusSdk, setNexusSdk] = useState<NexusSDK | undefined>(undefined);
-    const [isInitialized, setIsInitialized] = useState<boolean>(false);
+// ✅ 2. Extract SDK initialization logic
+async function initializeNexusSDK(
+    connector: any,
+    network: "mainnet" | "testnet",
+    onAllowance: (data: OnAllowanceHookData) => void,
+    onIntent: (data: OnIntentHookData) => void
+): Promise<NexusSDK> {
+    const provider = (await connector.getProvider()) as EthereumProvider;
+    if (!provider) throw new Error("No provider found");
+    
+    const sdk = new NexusSDK({ network, debug: true });
+    await sdk.initialize(provider);
+    
+    sdk.setOnAllowanceHook(onAllowance);
+    sdk.setOnIntentHook(onIntent);
+    
+    return sdk;
+}
+
+// ✅ 3. Custom hook for SDK management
+function useNexusSDK(isConnected: boolean, network: "mainnet" | "testnet") {
+    const { connector } = useAccount();
+    const sdkRef = useRef<NexusSDK | undefined>(undefined);
     const [allowanceModal, setAllowanceModal] = useState<OnAllowanceHookData | null>(null);
     const [intentModal, setIntentModal] = useState<OnIntentHookData | null>(null);
-    const [error, setError] = useState<Error | null>(null);
-    const {connector} = useAccount();
     
-    const initializeSDK = useCallback(async () => {
-        if (isConnected && !nexusSdk && connector) {
-        try{
-            const provider = (await connector.getProvider()) as EthereumProvider;
-            if (!provider) throw new Error("No provider found");
-            const sdk = new NexusSDK({
-                network: network,
-                debug: true,
-            })
-            await sdk.initialize(provider);
-            setNexusSdk(sdk);
-            setIsInitialized(true);
-            
-            sdk.setOnAllowanceHook(async (data: OnAllowanceHookData) => {
-                setAllowanceModal(data);
-            });
-            
-            sdk.setOnIntentHook(async (data: OnIntentHookData) => {
-                setIntentModal(data);
-            });
-
-        } 
-        
-        catch (error) {
-                console.error("Failed to initialize NexusSDK:", error);
-                setIsInitialized(false);
-            }
-        }
-    }, [isConnected, nexusSdk, connector])
-    
-    const cleanupSDK = useCallback(() => {
-        if (nexusSdk) {
-            nexusSdk.deinit();
-            setNexusSdk(undefined);
-            setIsInitialized(false); 
-        }
-    }, [nexusSdk]);
-
-    useEffect(()=>{
-        if (!isConnected) {
-            cleanupSDK();
-        } else {
-            initializeSDK();
-        }
-
-        return () => {
-            cleanupSDK();
-        }
-    }, [isConnected, initializeSDK, cleanupSDK]);
-
-    const contextValue: NexusContextType = useMemo(
-        () => ({
-          nexusSdk,
-          isInitialized,
-          allowanceModal,
-          setAllowanceModal,
-          intentModal,
-          setIntentModal,
-          cleanupSDK,
+    const { isSuccess, isLoading, error } = useQuery({
+        queryKey: ['nexus-sdk', connector?.id, network],
+        queryFn: () => initializeNexusSDK(
+            connector,
+            network,
+            setAllowanceModal,
+            setIntentModal
+        ).then(sdk => {
+            // Cleanup old SDK
+            sdkRef.current?.deinit();
+            sdkRef.current = sdk;
+            return true;
         }),
-        [nexusSdk, isInitialized, allowanceModal, intentModal, cleanupSDK],
-      );
+        enabled: isConnected && !!connector,
+        staleTime: Infinity,
+        gcTime: 0,
+        retry: false,
+    });
+    
+    return {
+        nexusSdk: sdkRef.current,
+        isInitialized: isSuccess,
+        isLoading,
+        error: error as Error | null,
+        allowanceModal,
+        setAllowanceModal,
+        intentModal,
+        setIntentModal,
+    };
+}
 
+// ✅ 4. Minimal context provider
+const NexusContext = createContext<NexusContextType | undefined>(undefined);
+
+export const NexusProvider: React.FC<NexusProviderProps> = ({
+    children,
+    isConnected,
+    network = "testnet"
+}) => {
+    const nexusState = useNexusSDK(isConnected, network);
+    
     return (
-        <NexusContext.Provider value={contextValue}>
+        <NexusContext.Provider value={nexusState}>
             {children}
         </NexusContext.Provider>
-    )
+    );
 };
 
 export const useNexus = () => {
     const context = useContext(NexusContext);
-    if (context === undefined) {
+    if (!context) {
         throw new Error("useNexus must be used within a NexusProvider");
     }
     return context;
-}
+};
