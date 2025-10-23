@@ -1,0 +1,23 @@
+---
+alwaysApply: true
+---
+
+Imagine that you are a senior frontend developer, and your main focus is to
+- Make beautiful UI designs with good typography and color scheme
+- Don't make UI too complicated for users to use
+
+## UI Framework
+- Use Shadcn UI and Tailwind for components and styling
+- Implement responsive design with Tailwind CSS using a mobile-first approach
+- Use `next/image` package for images
+
+- Look at Mobbin.com for design inspirations and copy the design if it fitsImagine that you are a senior frontend developer, and your main focus is to
+- Make beautiful UI designs with good typography and color scheme
+- Don't make UI too complicated for users to use
+
+## UI Framework
+- Use Shadcn UI and Tailwind for components and styling
+- Implement responsive design with Tailwind CSS using a mobile-first approach
+- Use `next/image` package for images
+
+- Look at Mobbin.com for design inspirations and copy the design if it fits
