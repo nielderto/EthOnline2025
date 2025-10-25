@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { Loader2 } from "lucide-react";
@@ -14,16 +14,21 @@ import ChainSelect from "./blocks/chain-select";
 import TokenSelect from "./blocks/token-select";
 import { useTransactionProgress } from "@/hooks/useTransactionProgress";
 import { useTransferTransaction } from "@/hooks/useTransferTransaction";
+import useENSResolver from "@/hooks/useENSResolver";
 import { SimulationPreview } from "./shared/simulation-preview";
 import IntentModal from "./nexus-modals/intent-modal";
 import AllowanceModal from "./nexus-modals/allowance-modal";
+import { ENSSetupModal } from "./ens/ens-setup-modal";
 
 interface TransferState {
   selectedChain: SUPPORTED_CHAINS_IDS;
   selectedToken: SUPPORTED_TOKENS | undefined;
-  recipientAddress: `0x${string}` | undefined;
+  recipientAddress: string | undefined; // stores resolved 0x address
+  recipientDisplay: string | undefined; // stores ENS name or truncated address
   amount: string;
   isTransferring: boolean;
+  showENSSetup: boolean;
+  userENS: string | null;
 }
 
 const NexusTransfer = ({ isTestnet }: { isTestnet: boolean }) => {
@@ -31,8 +36,11 @@ const NexusTransfer = ({ isTestnet }: { isTestnet: boolean }) => {
     selectedChain: SUPPORTED_CHAINS.ETHEREUM,
     selectedToken: undefined,
     recipientAddress: undefined,
+    recipientDisplay: undefined,
     amount: "",
     isTransferring: false,
+    showENSSetup: false,
+    userENS: null,
   });
   const {
     nexusSdk,
@@ -50,6 +58,10 @@ const NexusTransfer = ({ isTestnet }: { isTestnet: boolean }) => {
     triggerTransferSimulation,
   } = useTransferTransaction();
 
+  const { validateAndResolve } = useENSResolver();
+  const [isResolving, setIsResolving] = useState(false);
+  const resolveTimer = useRef<number | null>(null);
+
   useTransactionProgress({
     transactionType: "transfer",
     formData: {
@@ -61,11 +73,13 @@ const NexusTransfer = ({ isTestnet }: { isTestnet: boolean }) => {
   });
 
   // Trigger simulation when transfer parameters change
+  // Only run simulation when we have a canonical 0x address (resolved)
   useEffect(() => {
     if (
       state.selectedToken &&
       state.amount &&
       state.recipientAddress &&
+      state.recipientAddress.startsWith("0x") &&
       state.selectedChain &&
       parseFloat(state.amount) > 0
     ) {
@@ -73,7 +87,7 @@ const NexusTransfer = ({ isTestnet }: { isTestnet: boolean }) => {
         token: state.selectedToken,
         amount: state.amount,
         chainId: state.selectedChain,
-        recipient: state.recipientAddress,
+        recipient: state.recipientAddress as `0x${string}`,
       });
     }
   }, [
@@ -99,7 +113,46 @@ const NexusTransfer = ({ isTestnet }: { isTestnet: boolean }) => {
   const handleRecipientAddressChange = (
     e: React.ChangeEvent<HTMLInputElement>,
   ) => {
-    setState({ ...state, recipientAddress: e.target.value as `0x${string}` });
+    const val = e.target.value;
+    // store raw input immediately for responsive UI
+    setState(s => ({ ...s, recipientDisplay: val, recipientAddress: undefined }));
+
+    // debounce ENS/address resolution
+    if (resolveTimer.current) {
+      window.clearTimeout(resolveTimer.current);
+    }
+    resolveTimer.current = window.setTimeout(async () => {
+      if (!val.trim()) {
+        setIsResolving(false);
+        return;
+      }
+      
+      setIsResolving(true);
+      try {
+        const res = await validateAndResolve(val);
+        if (res.isValid && res.address) {
+          setState(s => ({ 
+            ...s, 
+            // store canonical address for transactions
+            recipientAddress: res.address || undefined,
+            // show ENS name if available, otherwise truncated address
+            recipientDisplay: res.type === 'ens' 
+              ? val 
+              : res.address 
+                ? (nexusSdk?.utils.truncateAddress(res.address, 6, 6) || res.address)
+                : undefined
+          }));
+        } else {
+          // clear resolved address if invalid
+          setState(s => ({ ...s, recipientAddress: undefined }));
+        }
+      } catch (err) {
+        console.error('ENS resolution error:', err);
+        setState(s => ({ ...s, recipientAddress: undefined }));
+      } finally {
+        setIsResolving(false);
+      }
+    }, 600) as unknown as number;
   };
 
   const handleTransfer = async () => {
@@ -120,7 +173,7 @@ const NexusTransfer = ({ isTestnet }: { isTestnet: boolean }) => {
         token: state.selectedToken,
         amount: state.amount,
         chainId: state.selectedChain,
-        recipient: state.recipientAddress,
+        recipient: state.recipientAddress as `0x${string}`,
       });
 
       console.log("result", result);
@@ -131,6 +184,7 @@ const NexusTransfer = ({ isTestnet }: { isTestnet: boolean }) => {
           ...state,
           amount: "",
           recipientAddress: undefined,
+          recipientDisplay: undefined,
           isTransferring: false,
         });
       }
@@ -157,18 +211,21 @@ const NexusTransfer = ({ isTestnet }: { isTestnet: boolean }) => {
         />
       </div>
       <div className="w-full flex items-center gap-x-2 shadow-[var(--ck-connectbutton-box-shadow)] rounded-[var(--ck-connectbutton-border-radius)]">
-        <Input
-          type="text"
-          placeholder="Recipient address"
-          className="border-none focus-visible:ring-0 focus-visible:ring-offset-0"
-          value={
-            state.recipientAddress
-              ? nexusSdk?.utils.truncateAddress(state.recipientAddress, 6, 6)
-              : ""
-          }
-          onChange={handleRecipientAddressChange}
-          disabled={!state.selectedToken}
-        />
+        <div className="relative w-full">
+          <Input
+            type="text"
+            placeholder="Enter ENS name or address"
+            className="border-none focus-visible:ring-0 focus-visible:ring-offset-0"
+            value={state.recipientDisplay || ""}
+            onChange={handleRecipientAddressChange}
+            disabled={!state.selectedToken}
+          />
+          {isResolving && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              <Loader2 className="w-4 h-4 animate-spin text-gray-500" />
+            </div>
+          )}
+        </div>
       </div>
       <div className="w-full flex items-center gap-x-2 shadow-[var(--ck-connectbutton-box-shadow)] rounded-[var(--ck-connectbutton-border-radius)]">
         <Input
@@ -218,6 +275,22 @@ const NexusTransfer = ({ isTestnet }: { isTestnet: boolean }) => {
         <AllowanceModal
           allowanceModal={allowanceModal}
           setAllowanceModal={setAllowanceModal}
+        />
+      )}
+
+      <Button
+        variant="ghost"
+        className="w-full mt-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+        onClick={() => setState(s => ({ ...s, showENSSetup: true }))}
+      >
+        {state.userENS ? 'Change ENS Name' : 'Set Up ENS Name'}
+      </Button>
+
+      {state.showENSSetup && (
+        <ENSSetupModal
+          userAddress={state.recipientAddress || ''}
+          onClose={() => setState(s => ({ ...s, showENSSetup: false }))}
+          onENSSet={(ensName) => setState(s => ({ ...s, userENS: ensName, showENSSetup: false }))}
         />
       )}
     </div>
